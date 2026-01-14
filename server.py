@@ -4,6 +4,13 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 import openai
+from flask import render_template
+
+app = Flask(__name__, template_folder='templates')
+
+@app.route('/')
+def home():
+    return render_template('chat.html')
 
 load_dotenv()
 
