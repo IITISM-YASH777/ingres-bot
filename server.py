@@ -438,5 +438,7 @@ User: {user_q}
         return jsonify({'answer': 'Server error'}), 500
 
 
+# At the BOTTOM of server.py (replace if __name__ == '__main__')
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+    
