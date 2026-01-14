@@ -235,7 +235,20 @@ def home():
 
 @app.route('/')
 def index():
-    return render_template('chat.html')
+    try:
+        return render_template('chat.html')
+    except Exception as e:
+        print('Template render error for / :', e)
+        # Return a minimal fallback page so the service remains available
+        fallback = """
+        <!doctype html>
+        <html><head><title>INGRES AI</title></head>
+        <body>
+        <h1>INGRES AI</h1>
+        <p>Service temporarily unavailable: template render failed.</p>
+        </body></html>
+        """
+        return fallback, 200, {'Content-Type': 'text/html'}
 
 
 @app.route('/health')
