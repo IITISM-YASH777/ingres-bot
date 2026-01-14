@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request, render_template
 from difflib import get_close_matches
-from flask_cors import CORS  #
 import os
 import pandas as pd
 from dotenv import load_dotenv
@@ -90,8 +89,23 @@ def ask_llm(user_q: str) -> str:
         "Keep explanations simple for non-technical users.\n\n"
         f"User question: {user_q}"
     )
-    # Use the compatibility wrapper which handles installed SDK differences
-    return call_llm(llm_prompt)
+    try:
+        resp = client.responses.create(
+            model=OPENAI_MODEL,
+            input=llm_prompt,
+            reasoning={"effort": "minimal"},
+            max_output_tokens=256,
+        )
+        text = getattr(resp, "output_text", None)
+        if text:
+            return text.strip()
+        if getattr(resp, "output", None) and len(resp.output) > 0:
+            first = resp.output[0]
+            if hasattr(first, "content") and first.content:
+                return first.content[0].text.strip()
+        return "Sorry, I could not generate an answer this time."
+    except Exception as e:
+        return f"Sorry, the AI backend had an issue: {e}"
 
 app = Flask(__name__)
 
@@ -186,7 +200,6 @@ HTML_PAGE = """
 # Do not read CSV at import time — load it inside request handlers to avoid
 # startup failures when the file is missing or unreadable.
 
-CORS(app)
 
 
 @app.route('/home', methods=["GET", "POST"])
@@ -285,10 +298,16 @@ If the data above contains exact numbers for the district/state asked about, use
 User: {user_msg}
 """
 
-            # Use compatibility wrapper for LLM calls
-            answer = call_llm(prompt)
-            if not answer:
+            try:
+                response = client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                answer = response.choices[0].message.content
+            except Exception as e:
+                print("LLM error in /get:", e)
                 return jsonify({'response': 'Sorry, I could not fetch groundwater data.'})
+
             return jsonify({'response': answer})
         else:
             # If CSV has matching rows, return an HTML-formatted metric table for the first match
@@ -400,9 +419,16 @@ If the data above contains exact numbers for the district/state asked about, use
 User: {user_q}
 """
 
-            answer = call_llm(prompt)
-            if not answer:
+            try:
+                response = client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                answer = response.choices[0].message.content
+            except Exception as e:
+                print("LLM error in /chat:", e)
                 return jsonify({'answer': 'Sorry, I could not generate an answer right now.'}), 502
+
             return jsonify({'answer': answer})
         else:
             summary = summarize_rows(relevant_rows)
